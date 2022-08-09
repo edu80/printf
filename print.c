@@ -1,68 +1,124 @@
 #include "main.h"
-#include <limits.h>
-#include <stdio.h>
-
-void print_buffer(char buffer[], int *buff_ind);
 
 /**
-* _printf - Printf function
-* @format: format.
-* Return: Printed chars.
+* check_buffer_overflow - if writing over buffer space,
+* print everything then revert length back to 0 to write at buffer start
+* @buffer: buffer holding string to print
+* @len: position in buffer
+* Return: length position
+*/
+int check_buffer_overflow(char *buffer, int len)
+{
+	if (len > 1020)
+	{
+		write(1, buffer, len);
+		len = 0;
+	}
+	return (len);
+}
+
+/**
+* _printf - mini printf version
+* @format: initial string with all identifiers
+* Return: strings with identifiers expanded
 */
 int _printf(const char *format, ...)
 {
-	int i, printed = 0, printed_chars = 0;
-	int flags, width, precision, size, buff_ind = 0;
+	int len = 0, total_len = 0, i = 0, j = 0;
 	va_list list;
-	char buffer[BUFF_SIZE];
+	char *buffer, *str;
+	char* (*f)(va_list);
 
 	if (format == NULL)
 		return (-1);
 
+	buffer = create_buffer();
+	if (buffer == NULL)
+		return (-1);
+
 	va_start(list, format);
 
-	for (i = 0; format && format[i] != '\0'; i++)
+	while (format[i] != '\0')
 	{
-		if (format[i] != '%')
+		if(format[i] != '%') /* copy format into buffer until '%' */
 		{
-			buffer[buff_ind++] = format[i];
-			if (buff_ind == BUFF_SIZE)
-				print_buffer(buffer, &buff_ind);
-			/* write(1, &format[i], 1);*/
-			printed_chars++;
+			len = check_buffer_overflow(buffer, len);
+			buffer[len++] = format[i++];
+			total_len++;
 		}
-		else
+		else /* if %, find function */
 		{
-			print_buffer(buffer, &buff_ind);
-			flags = get_flags(format, &i);
-			width = get_width(format, &i, list);
-			precision = get_precision(format, &i, list);
-			size = get_size(format, &i);
-			++i;
-			printed = handle_print(format, &i, list, buffer,
-				flags, width, precision, size);
-			if (printed == -1)
+			i++;
+			if (format[i] == '\0') /* handle single ending % */
+			{
+				va_end(list);
+				free(buffer);
 				return (-1);
-			printed_chars += printed;
+			}
+			if (format[i] == '%') /* handle double %'s */
+			{
+				len = check_buffer_overflow(buffer, len);
+				buffer[len++] = format[i];
+				total_len++;
+			}
+			else
+			{
+				f = get_func(format[i]); /* grab function */
+				if (f == NULL)  /* handle fake id */
+				{
+					len = check_buffer_overflow(buffer, len);
+					buffer[len++] = '%'; total_len++;
+					buffer[len++] = format[i]; total_len++;
+				}
+				else /* return string, copy to buffer */
+				{
+					str = f(list);
+					if (str == NULL)
+					{
+						va_end(list);
+						free(buffer);
+						return (-1);
+					}
+					if (format[i] == 'c' && str[0] == '\0')
+					{
+						len = check_buffer_overflow(buffer, len);
+						buffer[len++] = '\0';
+						total_len++;
+					}
+					j = 0;
+					while (str[j] != '\0')
+					{
+						len = check_buffer_overflow(buffer, len);
+						buffer[len++] = str[j];
+						total_len++; j++;
+					}
+					free(str);
+				}
+			} i++;
 		}
 	}
-	
-	print_buffer(buffer, &buff_ind);
-
-	va_end(list);
-
-	return (printed_chars);
+	write_buffer(buffer, len, list);
+	return (total_len);
 }
 
 /**
-* print_buffer - Prints the contents of the buffer if it exist
-* @buffer: Array of chars
-* @buff_ind: Index at which to add next char, represents the length.
+* main - sample main program
+* Return: 0 on sucess
 */
-void print_buffer(char buffer[], int *buff_ind)
+int main(void)
 {
-	if (*buff_ind > 0)
-		write(1, &buffer[0], *buff_ind);
-
-	*buff_ind = 0;
+	_printf("\n\n\nHere's some examples of what you could do with this custom_printf function!\n\n\n");
+	sleep(1);
+	_printf("\nPrinting Strings, Characters, and Numbers...... %s %c%drld\n\n", "Hello", 'W', 0);
+	sleep(1);
+	_printf("Printing Reverse...... %r \n\n", "Hello");
+	sleep(1);
+	_printf("Printing Binary (base 2)...... %b \n\n", "Hello");
+	sleep(1);
+	_printf("Printing Octal (base 8)...... %o \n\n", "Hello");
+	sleep(1);
+	_printf("Printing Rot13 (encrypt)...... %R \n\n", "Hello");
+	sleep(1);
+	_printf("\n\n             = )                  \n\n\n");
+	return (0);
 }
